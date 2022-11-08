@@ -1,0 +1,52 @@
+const std = @import("std");
+const mach = @import("libs/mach/build.zig");
+const zmath = @import("libs/zmath/build.zig");
+//const imgui = @import("libs/imgui/build.zig");
+
+
+pub fn build(b: *std.build.Builder) !void {
+    const target = b.standardTargetOptions(.{});
+    const mode = b.standardReleaseOptions();
+
+    //const exe = b.addExecutable("test", "src/main.zig");
+    //exe.setTarget(target);
+    //exe.setBuildMode(mode);
+    //exe.install();
+    //const run_cmd = exe.run();
+    //run_cmd.step.dependOn(b.getInstallStep());
+    //if (b.args) |args| {
+    //    run_cmd.addArgs(args);
+    //}
+
+    //const exe_tests = b.addTest("src/main.zig");
+    //exe_tests.setTarget(target);
+    //exe_tests.setBuildMode(mode);
+    //const test_step = b.step("test", "Run unit tests");
+    //test_step.dependOn(&exe_tests.step);
+
+    const app = try mach.App.init(
+        b,
+        .{
+            .name = "Test",
+            .src = "src/main.zig",
+            .target = target,
+            .deps = &.{ zmath.pkg },
+            .res_dirs = null,//&.{"assets"},
+            .watch_paths = &.{"src/"},
+        },
+    );
+
+    app.setBuildMode(mode);
+
+    try app.link(mach.Options{});
+    app.install();
+
+    const compile_step = b.step("compile", "Compile example");
+    compile_step.dependOn(&app.getInstallStep().?.step);
+
+    const run_cmd = try app.run();
+    run_cmd.dependOn(compile_step);
+
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(run_cmd);
+}
