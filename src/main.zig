@@ -15,6 +15,8 @@ var resource_manager: mach.ResourceManager = undefined;
 
 pub const App = @This();
 
+pub const flags = [_]gpu.FeatureName{.texture_compression_bc};
+
 pipeline: *gpu.RenderPipeline,
 queue: *gpu.Queue,
 
@@ -110,6 +112,16 @@ pub fn init(app: *App, core: *mach.Core) !void {
         .blend = &gpu.BlendState{},
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
+
+    const desc = gpu.VertexBufferLayout.init(.{
+        .array_stride = @sizeOf(m2.Vertex),
+        .step_mode = .vertex,
+        .attributes = &[_]gpu.VertexAttribute{
+            .{ .format = .float32x3, .offset = @offsetOf(m2.Vertex, "pos"), .shader_location = 0 },
+            .{ .format = .float32x3, .offset = @offsetOf(m2.Vertex, "normal"), .shader_location = 1 },
+            .{ .format = .float32x2, .offset = @offsetOf(m2.Vertex, "uv"), .shader_location = 2 },
+        },
+    });
     const pipeline_descriptor = gpu.RenderPipeline.Descriptor{
         .fragment = &gpu.FragmentState.init(.{
             .module = fs_module,
@@ -119,7 +131,7 @@ pub fn init(app: *App, core: *mach.Core) !void {
         .vertex = gpu.VertexState.init(.{
             .module = vs_module,
             .entry_point = "main",
-            .buffers = &.{m2.Vertex.desc},
+            .buffers = &.{desc},
         }),
         .depth_stencil = &.{
             .format = .depth24_plus,
@@ -174,7 +186,7 @@ pub fn deinit(app: *App, _: *mach.Core) void {
 
     app.mesh.deinit();
     app.texture.release();
-    resource_manager.deinit();
+    //resource_manager.deinit();
 }
 
 pub fn update(app: *App, core: *mach.Core) !void {
@@ -332,7 +344,7 @@ pub fn texture(core: *mach.Core, data: []const u8) !*gpu.Texture {
     try parse_source.reader().readNoEof(buf[0..]);
 
     const img_size = gpu.Extent3D{ .width = @intCast(u32, header.width), .height = @intCast(u32, header.height) };
-    const cube_texture = core.device.createTexture(&.{
+    const blp_texture = core.device.createTexture(&.{
         .size = img_size,
         .format = .bc2_rgba_unorm,
         .usage = .{
@@ -347,9 +359,9 @@ pub fn texture(core: *mach.Core, data: []const u8) !*gpu.Texture {
     };
 
     const queue = core.device.getQueue();
-    queue.writeTexture(&.{ .texture = cube_texture }, &data_layout, &img_size, buf);
+    queue.writeTexture(&.{ .texture = blp_texture }, &data_layout, &img_size, buf);
 
-    return cube_texture;
+    return blp_texture;
 }
 
 //const vertex_buffer = core.device.createBuffer(&.{
@@ -362,7 +374,7 @@ pub fn texture(core: *mach.Core, data: []const u8) !*gpu.Texture {
 //    for(model.global_vertices) |vert, i| {
 //        buffer_mapped.?[i*3 + 0] = model.global_vertices[index].position[0];
 //        buffer_mapped.?[i*3 + 1] = model.global_vertices[index].position[1];
-//        buffer_mapped.?[i*3 + 2] = model.global_vertices[index].position[2;
+//        buffer_mapped.?[i*3 + 2] = model.global_vertices[index].position[2];
 //    }
 //    vertex_buffer.unmap();
 //}

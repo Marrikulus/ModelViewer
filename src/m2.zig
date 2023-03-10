@@ -14,25 +14,24 @@ pub fn M2Array(comptime T: type) type {
         count: u32,
         offset: u32,
 
-        pub fn readOne(self: Self, comptime SourceT: type, source: * SourceT) !T {
+        pub fn readOne(self: Self, comptime SourceT: type, source: *SourceT) !T {
             try source.seekableStream().seekTo(self.offset);
-            switch(@typeInfo(T)){
+            switch (@typeInfo(T)) {
                 .Struct => return try source.reader().readStruct(T),
                 .Int => return try source.reader().readIntLittle(T),
                 else => @compileError("Unsupported " ++ @typeName(T)),
             }
         }
 
-        pub fn readAll(self: Self, comptime SourceT: type, source: * SourceT, allocator: std.mem.Allocator) ![]T {
-
+        pub fn readAll(self: Self, comptime SourceT: type, source: *SourceT, allocator: std.mem.Allocator) ![]T {
             const array = try allocator.alloc(T, self.count);
 
             var i: usize = 0;
             try source.seekableStream().seekTo(self.offset);
             while (i < self.count) : (i += 1) {
-                switch(@typeInfo(T)){
-                    .Struct =>  array[i] = try source.reader().readStruct(T),
-                    .Int =>  array[i] = try source.reader().readIntLittle(T),
+                switch (@typeInfo(T)) {
+                    .Struct => array[i] = try source.reader().readStruct(T),
+                    .Int => array[i] = try source.reader().readIntLittle(T),
                     else => @compileError("Unsupported " ++ @typeName(T)),
                 }
             }
@@ -90,26 +89,14 @@ const Header = extern struct {
     particle_emitters: List,
 };
 
-
 pub const Vertex = extern struct {
-    pos:        [3]f32,
-    bone_w:     [4]u8,
-    bone_idx:   [4]u8,
-    normal:     [3]f32,
-    uv:         [2]f32,
-    unk:        [2]f32,
-
-    pub const desc = gpu.VertexBufferLayout.init(.{
-        .array_stride = @sizeOf(Vertex),
-        .step_mode = .vertex,
-        .attributes = &[_]gpu.VertexAttribute{
-            .{ .format = .float32x3, .offset = @offsetOf(Vertex, "pos"), .shader_location = 0 },
-            .{ .format = .float32x3, .offset = @offsetOf(Vertex, "normal"), .shader_location = 1 },
-            .{ .format = .float32x2, .offset = @offsetOf(Vertex, "uv"), .shader_location = 2 },
-        },
-    });
+    pos: [3]f32,
+    bone_w: [4]u8,
+    bone_idx: [4]u8,
+    normal: [3]f32,
+    uv: [2]f32,
+    unk: [2]f32,
 };
-
 
 const View = extern struct {
     //magic: [4]u8,
@@ -122,17 +109,17 @@ const View = extern struct {
 };
 
 const SubMesh = extern struct {
-    skinSectionId:u16,
-    level:u16,
+    skinSectionId: u16,
+    level: u16,
 
-    vertexStart:u16,
-    vertexCount:u16,
-    indexStart:u16,
-    indexCount:u16,
-    boneCount:u16,
-    boneComboIndex:u16,
-    boneInfluences:u16,
-    centerBoneIndex:u16,
+    vertexStart: u16,
+    vertexCount: u16,
+    indexStart: u16,
+    indexCount: u16,
+    boneCount: u16,
+    boneComboIndex: u16,
+    boneInfluences: u16,
+    centerBoneIndex: u16,
     centerPosition: [3]f32,
 };
 
@@ -144,16 +131,15 @@ const M2Texture = extern struct {
 
 pub fn dump(comptime T: type, data: *const T) void {
     inline for (std.meta.fields(T)) |f| {
-        if(f.field_type == List
- //or f.field_type == M2Array
-        ){
-            std.debug.print("{s}: {any}\n", .{f.name, @field(data, f.name)});
+        if (f.type == List
+        //or f.field_type == M2Array
+        ) {
+            std.debug.print("{s}: {any}\n", .{ f.name, @field(data, f.name) });
         } else {
-            std.debug.print("{s}: {any}\n", .{f.name, @field(data, f.name)});
+            std.debug.print("{s}: {any}\n", .{ f.name, @field(data, f.name) });
         }
     }
 }
-
 
 pub const M2Model = struct {
     allocator: std.mem.Allocator,
@@ -184,38 +170,34 @@ pub const M2Model = struct {
 
         self.allocator.free(self.texture_names);
     }
-    
 };
-
-
 
 pub fn parseM2(allocator: std.mem.Allocator, data: []const u8) !M2Model {
     //var model = M2Model.init(allocator);
-    
-    var parse_source  = io.fixedBufferStream(data);
-    
+
+    var parse_source = io.fixedBufferStream(data);
+
     try parse_source.seekableStream().seekTo(0);
     const header = try parse_source.reader().readStruct(Header);
-    dump(Header, &header);
+    //dump(Header, &header);
     const name = try header.name.readAll(@TypeOf(parse_source), &parse_source, allocator);
     const global_vertices = try header.vertices.readAll(@TypeOf(parse_source), &parse_source, allocator);
     const view = try header.views.readOne(@TypeOf(parse_source), &parse_source);
     //dump(View, &view);
     //std.debug.print("\n\n", .{});
 
-
     const indices = try view.vertices.readAll(@TypeOf(parse_source), &parse_source, allocator);
     const triangles = try view.indices.readAll(@TypeOf(parse_source), &parse_source, allocator);
     const textures = try header.textures.readAll(@TypeOf(parse_source), &parse_source, allocator);
 
     const names = try allocator.alloc([]u8, textures.len);
-    for(textures) |tex| {
-        dump(M2Texture, &tex);
+    for (textures) |tex| {
+        //dump(M2Texture, &tex);
         //if(tex.type == 0) {
         //}
 
         const filename = try tex.filename.readAll(@TypeOf(parse_source), &parse_source, allocator);
-        std.debug.print("\n\n{s}\n\n", .{ filename });
+        std.debug.print("\n\n{s}\n\n", .{filename});
         allocator.free(filename);
     }
     return M2Model{
@@ -250,7 +232,7 @@ const BlpPixelFormat = enum(u8) {
     unspecified,
     argb2565,
     unk,
-    pixel_bc5, // dxgi_format_bc5_unorm 
+    pixel_bc5, // dxgi_format_bc5_unorm
     num_pixel_formats = 12, // (no idea if format=10 exists)
 };
 
@@ -277,15 +259,14 @@ pub const BlpHeader = extern struct {
 };
 
 pub fn parseBlp(allocator: std.mem.Allocator, data: []const u8) !void {
-    var parse_source  = io.fixedBufferStream(data);
-    
+    var parse_source = io.fixedBufferStream(data);
+
     _ = allocator;
     try parse_source.seekableStream().seekTo(0);
     const header = try parse_source.reader().readStruct(BlpHeader);
-    if(!std.mem.eql(u8, "BLP2", &header.id)) return error.InvalidData;
-    if(header.version != 1) return error.InvalidData;
+    if (!std.mem.eql(u8, "BLP2", &header.id)) return error.InvalidData;
+    if (header.version != 1) return error.InvalidData;
 
-    
     std.debug.print("\n\nname: {s}\nversion: {any}\n\n\n", .{ header.id, header.version });
     dump(BlpHeader, &header);
 
@@ -302,9 +283,7 @@ pub fn parseBlp(allocator: std.mem.Allocator, data: []const u8) !void {
     //Texture.Format.bc2_rgba_unorm_srgb,
 }
 
-
 test "basic test" {
-
     {
         //const data = @embedFile("assets/Wisp.m2");
         //const model = try parseM2(std.testing.allocator, data[0..]);
@@ -312,9 +291,8 @@ test "basic test" {
 
         const wisp_blp = @embedFile("assets/Creature/Wisp/Wisp.blp");
         try parseBlp(std.testing.allocator, wisp_blp);
-        
+
         const bear_blp = @embedFile("assets/Creature/bear/BearSkinBlack.blp");
         try parseBlp(std.testing.allocator, bear_blp);
     }
 }
-

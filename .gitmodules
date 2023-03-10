@@ -4,3 +4,6 @@
 [submodule "libs/zmath"]
 	path = libs/zmath
 	url = https://github.com/PiergiorgioZagaria/zmath.git
+[submodule "libs/zig-gamedev"]
+	path = libs/zig-gamedev
+	url = https://github.com/michal-z/zig-gamedev
